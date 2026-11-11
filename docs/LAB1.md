@@ -57,3 +57,11 @@ python3 scripts/write_score.py
 ```sh
 mvn -B -Dtest=OrderCreationTest,PricingCalculatorTest,PricingCalculatorReferenceTest verify
 ```
+
+## Совместимость тестового окружения
+
+`src/test/resources/docker-java.properties` задаёт Docker API 1.44 для
+Testcontainers. В исходном шаблоне docker-java 3.4.0 выбирает API 1.32,
+который Docker на GitHub Actions отклоняет (`Minimum supported API version
+is 1.40`). Это исправление позволяет запустить исходные эталонные тесты;
+сами тесты, правила проверки и начисления баллов не изменяются.
