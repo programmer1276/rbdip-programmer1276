@@ -3,11 +3,15 @@ package com.rbdip.bookstore.order;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.rbdip.bookstore.customer.Customer;
+import com.rbdip.bookstore.customer.CustomerService;
 import com.rbdip.bookstore.product.Product;
 import com.rbdip.bookstore.product.ProductRepository;
 import java.math.BigDecimal;
@@ -23,6 +27,7 @@ import org.mockito.ArgumentCaptor;
 /** Проверяет поведение создания заказа после разделения обязанностей. */
 class OrderCreationTest {
 
+    private final CustomerService customers = mock(CustomerService.class);
     private final ProductRepository products = mock(ProductRepository.class);
     private final OrderRepository orders = mock(OrderRepository.class);
     private final OrderItemRepository items = mock(OrderItemRepository.class);
@@ -31,8 +36,10 @@ class OrderCreationTest {
 
     @BeforeEach
     void setUp() {
+        when(customers.findOrCreate(anyString(), anyString(), nullable(String.class)))
+                .thenAnswer(call -> new Customer(call.getArgument(0), call.getArgument(1), call.getArgument(2)));
         service = new OrderService(new OrderRequestValidator(), new OrderItemResolver(products),
-                new OrderWriter(orders, items), new PricingCalculator(), notifier);
+                new OrderWriter(orders, items, customers), new PricingCalculator(), notifier);
     }
 
     @Test
@@ -70,7 +77,7 @@ class OrderCreationTest {
         assertThatThrownBy(() -> service.createOrder(request(name, "Moscow", null, null,
                 List.of(new CreateOrderRequest.Item(1L, 1)))))
                 .isInstanceOf(IllegalArgumentException.class).hasMessage("customerFullName is required");
-        verifyNoInteractions(products, orders, items, notifier);
+        verifyNoInteractions(products, customers, orders, items, notifier);
     }
 
     @ParameterizedTest
@@ -80,7 +87,7 @@ class OrderCreationTest {
         assertThatThrownBy(() -> service.createOrder(request("Ivan", address, null, null,
                 List.of(new CreateOrderRequest.Item(1L, 1)))))
                 .isInstanceOf(IllegalArgumentException.class).hasMessage("customerAddress is required");
-        verifyNoInteractions(products, orders, items, notifier);
+        verifyNoInteractions(products, customers, orders, items, notifier);
     }
 
     @ParameterizedTest
@@ -88,7 +95,7 @@ class OrderCreationTest {
     void rejectsMissingItems(List<CreateOrderRequest.Item> rawItems) {
         assertThatThrownBy(() -> service.createOrder(request("Ivan", "Moscow", null, null, rawItems)))
                 .isInstanceOf(IllegalArgumentException.class).hasMessage("order must contain at least one item");
-        verifyNoInteractions(products, orders, items, notifier);
+        verifyNoInteractions(products, customers, orders, items, notifier);
     }
 
     @ParameterizedTest
@@ -98,7 +105,7 @@ class OrderCreationTest {
         assertThatThrownBy(() -> service.createOrder(request("Ivan", "Moscow", null, null,
                 List.of(new CreateOrderRequest.Item(1L, quantity)))))
                 .isInstanceOf(IllegalArgumentException.class).hasMessage("quantity must be positive");
-        verifyNoInteractions(orders, items, notifier);
+        verifyNoInteractions(customers, orders, items, notifier);
     }
 
     @Test
@@ -108,7 +115,7 @@ class OrderCreationTest {
         assertThatThrownBy(() -> service.createOrder(request("Ivan", "Moscow", null, null,
                 List.of(new CreateOrderRequest.Item(1L, 1), new CreateOrderRequest.Item(2L, 1)))))
                 .isInstanceOf(IllegalArgumentException.class).hasMessage("product 2 not found");
-        verifyNoInteractions(orders, items, notifier);
+        verifyNoInteractions(customers, orders, items, notifier);
     }
 
     @Test
@@ -126,7 +133,7 @@ class OrderCreationTest {
     void defaultsMissingCustomerTypeToRegular() {
         PricingCalculator calculator = mock(PricingCalculator.class);
         service = new OrderService(new OrderRequestValidator(), new OrderItemResolver(products),
-                new OrderWriter(orders, items), calculator, notifier);
+                new OrderWriter(orders, items, customers), calculator, notifier);
         when(products.findById(1L)).thenReturn(Optional.of(new Product("Book", BigDecimal.TEN, null)));
         when(orders.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
         service.createOrder(request("Ivan", "Moscow", null, null, List.of(new CreateOrderRequest.Item(1L, 1))));

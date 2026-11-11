@@ -1,6 +1,7 @@
 package com.rbdip.bookstore.order;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -34,7 +35,14 @@ class PricingCalculatorTest {
         "1010, 1, regular, SAVE10, 1000.00",
         "1100, 1, vip, , 990.00",
         "100, 20, vip, SAVE10, 1666.00",
-        "0.335, 1, regular, , 0.34"
+        "0.335, 1, regular, , 0.34",
+        "10, 0, regular, , 0.00",
+        "10, -1, regular, , 0.00",
+        "0, 11, vip, SAVE10, 0.00",
+        "1000.01, 1, regular, , 980.01",
+        "1010.01, 1, regular, SAVE10, 980.01",
+        "100, 1, VIP, save10, 100.00",
+        "100, 1, vip, SAVE20PERCENT, 72.00"
     })
     void preservesPricingRules(String price, int quantity, String customerType, String coupon, String expected) {
         BigDecimal total = calculator.calculateOrderTotal(
@@ -48,6 +56,23 @@ class PricingCalculatorTest {
                 new PricingCalculator.LineItem(new BigDecimal("0.335"), 1),
                 new PricingCalculator.LineItem(new BigDecimal("0.335"), 1)), "regular", null);
         assertThat(total).isEqualTo(new BigDecimal("0.67"));
+    }
+
+    @Test
+    void preservesRejectionOfNullPriceAndNullItemList() {
+        assertThatThrownBy(() -> calculator.calculateOrderTotal(null, "regular", null))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> calculator.calculateOrderTotal(
+                List.of(new PricingCalculator.LineItem(null, 1)), "regular", null))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void appliesCouponOnceToOrderRatherThanToEachLine() {
+        BigDecimal total = calculator.calculateOrderTotal(List.of(
+                new PricingCalculator.LineItem(new BigDecimal("20"), 1),
+                new PricingCalculator.LineItem(new BigDecimal("30"), 1)), "regular", "SAVE10");
+        assertThat(total).isEqualTo(new BigDecimal("40.00"));
     }
 
     @Test
