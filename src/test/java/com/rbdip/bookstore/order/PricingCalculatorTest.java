@@ -76,6 +76,39 @@ class PricingCalculatorTest {
     }
 
     @Test
+    void appliesBulkDiscountOnlyToEligibleLinesBeforeCustomerAndCouponDiscounts() {
+        BigDecimal total = calculator.calculateOrderTotal(List.of(
+                new PricingCalculator.LineItem(new BigDecimal("10.00"), 11),
+                new PricingCalculator.LineItem(new BigDecimal("20.00"), 10)), "vip", "SAVE10");
+        // (110 * 0.95 + 200) * 0.9 - 10; вторая позиция не получает оптовую скидку.
+        assertThat(total).isEqualTo(new BigDecimal("264.05"));
+    }
+
+    @Test
+    void appliesLargeOrderDiscountToCombinedTotalAfterPercentageCoupon() {
+        List<PricingCalculator.LineItem> items = List.of(
+                new PricingCalculator.LineItem(new BigDecimal("600.00"), 1),
+                new PricingCalculator.LineItem(new BigDecimal("500.00"), 1));
+        assertThat(calculator.calculateOrderTotal(items, "regular", null))
+                .isEqualTo(new BigDecimal("1078.00"));
+        // После купона итог 880: порог 1000 уже не превышен, скидки 2% быть не должно.
+        assertThat(calculator.calculateOrderTotal(items, "regular", "SAVE20PERCENT"))
+                .isEqualTo(new BigDecimal("880.00"));
+    }
+
+    @Test
+    void doesNotCombineQuantitiesOfSeparateLinesForBulkDiscount() {
+        List<PricingCalculator.LineItem> separateLines = List.of(
+                new PricingCalculator.LineItem(BigDecimal.TEN, 6),
+                new PricingCalculator.LineItem(BigDecimal.TEN, 6));
+        assertThat(calculator.calculateOrderTotal(separateLines, "regular", null))
+                .isEqualTo(new BigDecimal("120.00"));
+        assertThat(calculator.calculateOrderTotal(
+                List.of(new PricingCalculator.LineItem(BigDecimal.TEN, 12)), "regular", null))
+                .isEqualTo(new BigDecimal("114.00"));
+    }
+
+    @Test
     void handlesEmptyOrderTotal() {
         assertThat(calculator.calculateOrderTotal(List.of(), "regular", null)).isEqualTo(new BigDecimal("0.00"));
     }
