@@ -15,8 +15,10 @@ public class CustomerService {
 
     @Transactional
     public Customer findOrCreate(String name, String address, String phone) {
-        customerRepository.insertIfMissing(name, address, phone);
-        return customerRepository.findByFullNameAndAddressAndPhone(name, address, phone)
+        CustomerName customerName = CustomerName.fromFullName(name);
+        customerRepository.insertIfMissing(customerName.firstName(), customerName.lastName(), address, phone);
+        return customerRepository.findByFirstNameAndLastNameAndAddressAndPhone(
+                        customerName.firstName(), customerName.lastName(), address, phone)
                 .orElseThrow(() -> new IllegalStateException("customer was not saved"));
     }
 }

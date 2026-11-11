@@ -10,11 +10,13 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
 
     @Modifying
     @Query(value = """
-            INSERT INTO customers (full_name, address, phone)
-            VALUES (:name, :address, :phone)
-            ON CONFLICT ON CONSTRAINT customers_contacts_unique DO NOTHING
+            INSERT INTO customers (first_name, last_name, address, phone)
+            VALUES (:firstName, :lastName, :address, :phone)
+            ON CONFLICT DO NOTHING
             """, nativeQuery = true)
-    void insertIfMissing(@Param("name") String name, @Param("address") String address, @Param("phone") String phone);
+    void insertIfMissing(@Param("firstName") String firstName, @Param("lastName") String lastName,
+            @Param("address") String address, @Param("phone") String phone);
 
-    Optional<Customer> findByFullNameAndAddressAndPhone(String fullName, String address, String phone);
+    Optional<Customer> findByFirstNameAndLastNameAndAddressAndPhone(
+            String firstName, String lastName, String address, String phone);
 }
